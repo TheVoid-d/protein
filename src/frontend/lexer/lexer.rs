@@ -27,34 +27,38 @@ impl Lexer {
                 '(' => {
                     source.next();
                     tokens.push(Token::new(current.to_string(), TokenType::OpenParen))
-                }
+                },
                 ')' => {
                     source.next();
                     tokens.push(Token::new(current.to_string(), TokenType::CloseParen))
-                }
+                },
 
                 '{' => {
                     source.next();
                     tokens.push(Token::new(current.to_string(), TokenType::OpenBracket))
-                }
+                },
                 '}' => {
                     source.next();
                     tokens.push(Token::new(current.to_string(), TokenType::CloseBracket))
-                }
+                },
 
                 '-' | '+' | '*' | '/' | '%' | '^' => {
                     source.next();
                     tokens.push(Token::new(current.to_string(), TokenType::BinaryOperation))
-                }
+                },
 
                 ';' => {
                     source.next();
                     tokens.push(Token::new(current.to_string(), TokenType::Semicolon))
-                }
+                },
                 ':' => {
                     source.next();
                     tokens.push(Token::new(current.to_string(), TokenType::Colon))
-                }
+                },
+                '=' => {
+                    source.next();
+                    tokens.push(Token::new(current.to_string(), TokenType::Equals))
+                },
 
                 _ => {
                     if current.is_ascii_digit() {
@@ -77,6 +81,7 @@ impl Lexer {
                             } else {
                                 break;
                             }
+                            source.next();
                         }
                         tokens.push(Token::new(
                             identifier.clone(),
