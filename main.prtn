@@ -1,1 +1,5 @@
-5 + 10;
+{ name: "Alice", information: {
+                job: "Builder",
+                wage: 10
+                },
+            };;;

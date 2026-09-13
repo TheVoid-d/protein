@@ -22,43 +22,95 @@ impl Lexer {
 
         println!("source: {source:?}");
         while let Some(&current) = source.peek() {
-            // println!("Current token is {current:?}");
             match current {
+                '"' => {
+                    source.next();
+                    let mut str = String::new();
+                    while let Some(val) = source.peek() {
+                        if val.eq(&'"') {
+                            tokens.push(Token::new(str, TokenType::String));
+                            source.next();
+                            break;
+                        } else {
+                            str += &val.to_string();
+                        }
+                        source.next();
+                    }
+                }
+                '/' => {
+                    source.next();
+                    /*
+                    Comment
+                     */
+                    if let Some(val) = source.peek() {
+                        if val.eq(&'/') {
+                            println!("simple comment {val}");
+                            source.next();
+                            while let Some(next) = source.peek() {
+                                if !next.eq(&'\n') {
+                                    source.next();
+                                    continue;
+                                } else {
+                                    break;
+                                }
+                            }
+                        } else if val.eq(&'*') {
+                            println!("complex comment {val}");
+                            while let Some(next) = source.peek() {
+                                if next.eq(&'/') {
+                                    break;
+                                } else {
+                                    source.next();
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                }
                 '(' => {
                     source.next();
                     tokens.push(Token::new(current.to_string(), TokenType::OpenParen))
-                },
+                }
                 ')' => {
                     source.next();
                     tokens.push(Token::new(current.to_string(), TokenType::CloseParen))
-                },
+                }
 
                 '{' => {
                     source.next();
                     tokens.push(Token::new(current.to_string(), TokenType::OpenBracket))
-                },
+                }
                 '}' => {
                     source.next();
                     tokens.push(Token::new(current.to_string(), TokenType::CloseBracket))
-                },
+                }
 
                 '-' | '+' | '*' | '/' | '%' | '^' => {
                     source.next();
                     tokens.push(Token::new(current.to_string(), TokenType::BinaryOperation))
-                },
+                }
 
                 ';' => {
                     source.next();
                     tokens.push(Token::new(current.to_string(), TokenType::Semicolon))
-                },
+                }
                 ':' => {
                     source.next();
                     tokens.push(Token::new(current.to_string(), TokenType::Colon))
-                },
+                }
+
                 '=' => {
                     source.next();
                     tokens.push(Token::new(current.to_string(), TokenType::Equals))
-                },
+                }
+                ',' => {
+                    source.next();
+                    tokens.push(Token::new(current.to_string(), TokenType::Comma))
+                }
+
+                ' ' => {
+                    source.next();
+                }
 
                 _ => {
                     if current.is_ascii_digit() {
@@ -107,7 +159,7 @@ impl Lexer {
     }
     fn is_skippable(&self, c: char) -> bool {
         match c {
-            ' ' | '\n' | '\t' | '\r' => true,
+            '\n' | '\t' | '\r' => true,
             _ => false,
         }
     }

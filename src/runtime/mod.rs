@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 pub mod scope;
 pub mod interpreter;
 
@@ -6,6 +8,9 @@ pub enum RuntimeValue {
     Number(f64),
     Bool(bool),
     Null,
+    String(String),
+    ObjectLiteral(HashMap<String, RuntimeValue>)
+
 }
 
 impl RuntimeValue {

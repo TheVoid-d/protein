@@ -37,6 +37,9 @@ pub enum TokenType {
 
     Identifier,
     Number,
-
+    //Quotes,
+    String,
+    
     EOF, // End Of A File
+    //Void,
 }

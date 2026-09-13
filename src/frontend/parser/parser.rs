@@ -1,8 +1,8 @@
 use crate::frontend::lexer::lexer::Lexer;
 use crate::frontend::lexer::token::{Token, TokenType};
 use crate::frontend::parser::ast::Expression::BinaryExpression;
-use crate::frontend::parser::ast::{Expression, Program, Statement};
-use log::error;
+use crate::frontend::parser::ast::{Expression, ObjectLiteral, Program, Property, Statement};
+use std::collections::HashMap;
 use std::process::exit;
 
 /// class which is used for parsing tokens into a `Abstract Syntax Tree (AST)`
@@ -35,7 +35,6 @@ impl Parser {
         program
     }
     fn parse_statement(&mut self) -> Statement {
-        println!("Parsing statement:{:?}", self.at());
         match self.at().token_type() {
             TokenType::Semicolon => {
                 self.eat();
@@ -43,10 +42,11 @@ impl Parser {
             }
             TokenType::Let | TokenType::Const => self.parse_variable_declaration(),
 
+            TokenType::Identifier => self.parse_identifier(),
             _ => {
                 let expression = self.parse_expression();
                 if self.at().token_type().eq(&TokenType::Semicolon) {
-                    self.eat(); // Past semicolon
+                    self.eat(); // Past semicolon or " "
                 }
                 Statement::Expr(expression)
             }
@@ -54,8 +54,7 @@ impl Parser {
     }
 
     fn parse_variable_declaration(&mut self) -> Statement {
-        // const a; - NOT ALLOWED!
-        // let a;
+        println!("Variable declaration!");
         let is_constant = matches!(self.eat().token_type(), TokenType::Const); // let | const cases AND moving to the variable name
 
         let variable_name = String::from(self.eat().value()); // getting the variable name and passing towards equals;
@@ -64,20 +63,20 @@ impl Parser {
             // either is the end of a variable declaration(;) OR equals
             println!("matches!");
             return Statement::Let {
-                name: variable_name,
+                variable_name: variable_name,
                 value: None,
                 is_constant,
-            }
+            };
         }
         let value = self.parse_expression(); // parsing the value of a variable and moving towards semicolon
-        //self.expect(TokenType::Equals, "Variable declaration have to end with semicolon");
         // let | const a = 10;
+        println!("at: {:?}", self.at());
         if !matches!(self.at().token_type(), TokenType::Semicolon) {
-            error!("Variable declaration have to end with semicolon");
+            self.error("Variable declaration have to end with semicolon");
             exit(-1);
         }
         Statement::Let {
-            name: variable_name,
+            variable_name: variable_name,
             value: Option::from(value),
             is_constant,
         }
@@ -103,8 +102,7 @@ impl Parser {
     fn parse_multiplicative_expression(&mut self) -> Expression {
         let mut left = self.parse_primary_expression();
 
-        while self.at().value().eq("*") || self.at().value().eq("/") || self.at().value().eq("^")
-        {
+        while self.at().value().eq("*") || self.at().value().eq("/") || self.at().value().eq("^") {
             let operator = self.eat().value().to_string();
             let right = self.parse_primary_expression();
 
@@ -118,31 +116,31 @@ impl Parser {
     }
     fn parse_primary_expression(&mut self) -> Expression {
         match self.at().token_type() {
-            TokenType::Identifier => Expression::Identifier(self.eat().value().to_string()),
+            TokenType::Identifier => Expression::Identifier(self.eat().value().to_string()), // this will never happen ig, because of $parse_variable_assignment
             TokenType::Number => Expression::Number(self.eat().value().parse().unwrap()),
-            TokenType::OpenParen => {
-                self.eat();
-                let expression = self.parse_expression();
-                self.expect(TokenType::CloseParen, "Expected closing parenthesis");
-                expression
-            }
+            TokenType::String => Expression::String(self.eat().value().to_string()),
+
+            TokenType::OpenBracket => self.parse_literal_object(),
+
             _ => {
-                error!("Unexpected token during parsing");
-                self.eat();
-                Expression::Identifier("NULL".to_string())
+                self.error("Unexpected token during parsing");
             }
         }
     }
 
+    fn error(&self, message: &str) -> ! {
+        println!("\n ===== \n Parser Error \n {message:?} \n ===== \n");
+        exit(-1);
+    }
     fn expect(&mut self, token_type: TokenType, message: &str) -> Token {
         let current = self.eat();
         if current.token_type().eq(&token_type) {
             return current;
         }
-        error!(
-            "\n ========== \n Parser Error! \n Expected {token_type:?} | \n Provided {:?} \n Error Message: {message}\n ========== \n",
+        self.error(&format!(
+            "Expected {token_type:?} | \n Provided {:?} \n Error Message: {message}",
             self.at()
-        );
+        ));
         exit(-1);
     }
     /// Returns `true` if current `TokenType` is `EOF`
@@ -164,5 +162,70 @@ impl Parser {
             self.cursor += 1;
         }
         current_token
+    }
+    fn parse_variable_assignment(&mut self) -> Statement {
+        // a = expression;
+        // we`re sure that current token is identifier
+        let variable_name = self.eat().value().to_string(); // skipping the identifier token
+        if !self.eat().token_type().eq(&TokenType::Equals) {
+            // if the current token is not equals(=) then it means that this is not an assignment call, its just a variable call.
+            return Statement::Expr(Expression::Identifier(variable_name.to_string()));
+        }
+
+        let value = self.parse_expression(); // parsing the new value for variable
+        Statement::VariableAssignment {
+            variable_name,
+            value,
+        }
+    }
+
+    fn parse_literal_object(&mut self) -> Expression {
+        // { key: value, key2: value }
+        self.expect(
+            TokenType::OpenBracket,
+            "Expected open bracket ( { ) for literal objet declaration",
+        ); //getting past the {
+
+        let mut object_literal = ObjectLiteral { 0: vec![] };
+
+        while !self.is_eof() && !self.at().token_type().eq(&TokenType::CloseBracket) {
+            let key = self.expect(
+                TokenType::Identifier,
+                "Expected key: value in literal object declaration",
+            );
+
+            self.expect(
+                TokenType::Colon,
+                "Expected colon in literal object declaration",
+            );
+
+            let value = self.parse_expression();
+
+            object_literal.add_property(Property {
+                key: key.value().to_string(),
+                value: Box::from(value),
+            });
+            if self.at().token_type().eq(&TokenType::Comma) {
+                self.eat();
+                continue;
+            }
+        }
+        self.eat();
+        println!("{object_literal:?}");
+        Expression::ObjectLiteral(object_literal)
+    }
+
+    fn parse_identifier(&mut self) -> Statement {
+        let keywords = HashMap::from([
+            ("true", Expression::Bool(true)),
+            ("false", Expression::Bool(false)),
+            ("null", Expression::Null),
+        ]);
+
+        if let Some(expr) = keywords.get(self.at().value()) {
+            return Statement::Expr(expr.clone());
+        }
+
+        self.parse_variable_assignment()
     }
 }
